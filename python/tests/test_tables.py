@@ -2266,3 +2266,336 @@ class TestBaseTable(unittest.TestCase):
         t = tskit.BaseTable(None, None)
         with self.assertRaises(NotImplementedError):
             t.set_columns()
+
+
+class TestSubsetTables(unittest.TestCase):
+
+    seed = 12345
+
+    def subset_ragged_columns(self, packed, offset, subset, name):
+        """
+        Subsets a pair of ragged columns by the rows specified in `subset`.
+        :param numpy.ndarray packed: The flattened array of data.
+        :param numpy.ndarray offset: The array of offsets into the ``packed`` array.
+        : param str name: The name of the ragged columns.
+        :return: A tuple with the subsetted flattened array of data and offsets.
+        :rtype: tuple[numpy.ndarray]
+
+        """
+        if name in ["ancestral_state", "derived_state", "record", "timestamp"]:
+            unpack = tskit.unpack_strings
+            pack = tskit.pack_strings
+        elif name == "location":
+            unpack = tskit.unpack_arrays
+            pack = tskit.pack_arrays
+        else:
+            unpack = tskit.unpack_bytes
+            pack = tskit.pack_bytes
+        unpacked = unpack(packed, offset)
+        unpacked = [unpacked[i] for i in subset]
+        return pack(unpacked)
+
+    def np_subset(self, tables, nodes, record_provenance=True):
+        """
+        Numpy version of TableCollection.subset, for testing purposes.
+        """
+        if nodes.size == 0:
+            raise ValueError("Nodes cannot be empty.")
+        if np.max(nodes) >= tables.nodes.num_rows or np.any(nodes < 0):
+            raise ValueError("Node out of bounds")
+        full = tables.copy()
+        n = full.nodes
+        # figuring out which individuals to keep
+        full_inds = n.individual[nodes]
+        indiv_to_keep, i = np.unique(full_inds, return_index=True)
+        # maintaining order in which they appeard
+        indiv_to_keep = indiv_to_keep[np.argsort(i)]
+        # removing -1
+        indiv_to_keep = indiv_to_keep[indiv_to_keep != tskit.NULL]
+        # subsetting individuals table
+        ind_map = np.full(full.individuals.num_rows + 1, tskit.NULL, dtype="int32")
+        if indiv_to_keep.size == 0:
+            tables.individuals.clear()
+        else:
+            i = full.individuals
+            tables.individuals.set_columns(
+                i.flags[indiv_to_keep],
+                *self.subset_ragged_columns(
+                    i.location, i.location_offset, indiv_to_keep, "location"
+                ),
+                *self.subset_ragged_columns(
+                    i.metadata, i.metadata_offset, indiv_to_keep, "metadata"
+                ),
+            )
+            ind_map[indiv_to_keep] = np.arange(indiv_to_keep.size, dtype="int32")
+        # figuring out which pops to keep
+        full_pops = n.population[nodes]
+        pop_to_keep, j = np.unique(full_pops, return_index=True)
+        pop_to_keep = pop_to_keep[np.argsort(j)]
+        pop_to_keep = pop_to_keep[pop_to_keep != tskit.NULL]
+        # subsetting populations table
+        pop_map = np.full(full.populations.num_rows + 1, tskit.NULL, dtype="int32")
+        if pop_to_keep.size == 0:
+            tables.populations.clear()
+        else:
+            p = full.populations
+            tables.populations.set_columns(
+                *self.subset_ragged_columns(
+                    p.metadata, p.metadata_offset, pop_to_keep, "metadata"
+                )
+            )
+            pop_map[pop_to_keep] = np.arange(pop_to_keep.size, dtype="int32")
+        # subsetting nodes table
+        tables.nodes.set_columns(
+            n.flags[nodes],
+            n.time[nodes],
+            pop_map[full_pops],
+            ind_map[full_inds],
+            *self.subset_ragged_columns(
+                n.metadata, n.metadata_offset, nodes, "metadata"
+            ),
+        )
+        # mapping node ids in full to subsetted table
+        # making the node map +1 bc last will be mapping -1 to -1
+        node_map = np.full(full.nodes.num_rows + 1, tskit.NULL, dtype="int32")
+        node_map[nodes] = np.arange(tables.nodes.num_rows)
+        # subsetting migrations full
+        mig = full.migrations
+        keep_mig = np.isin(mig.node, nodes)
+        mig_to_keep = np.where(keep_mig)[0]
+        if mig_to_keep.size == 0:
+            tables.migrations.clear()
+        else:
+            tables.migrations.set_columns(
+                mig.left[mig_to_keep],
+                mig.right[mig_to_keep],
+                node_map[mig.node[mig_to_keep]],
+                pop_map[mig.source[mig_to_keep]],
+                pop_map[mig.dest[mig_to_keep]],
+                mig.time[mig_to_keep],
+                *self.subset_ragged_columns(
+                    mig.metadata, mig.metadata_offset, mig_to_keep, "metadata"
+                ),
+            )
+        e = full.edges
+        # keeping edges connecting nodes
+        keep_edges = np.logical_and(np.isin(e.parent, nodes), np.isin(e.child, nodes))
+        edges_to_keep = np.where(keep_edges)[0]
+        if edges_to_keep.size == 0:
+            tables.edges.clear()
+        else:
+            tables.edges.set_columns(
+                e.left[edges_to_keep],
+                e.right[edges_to_keep],
+                node_map[e.parent[edges_to_keep]],
+                node_map[e.child[edges_to_keep]],
+                *self.subset_ragged_columns(
+                    e.metadata, e.metadata_offset, edges_to_keep, "metadata"
+                ),
+            )
+        # subsetting mutation and sites full
+        m = full.mutations
+        s = full.sites
+        # only keeping muts in nodes
+        muts_to_keep = np.where(np.isin(m.node, nodes))[0]
+        # only keeping sites of muts in nodes
+        full_sites = m.site[muts_to_keep]
+        sites_to_keep = np.unique(full_sites)
+        if sites_to_keep.size == 0:
+            tables.sites.clear()
+            tables.mutations.clear()
+        else:
+            tables.sites.set_columns(
+                s.position[sites_to_keep],
+                *self.subset_ragged_columns(
+                    s.ancestral_state,
+                    s.ancestral_state_offset,
+                    sites_to_keep,
+                    "ancestral_state",
+                ),
+                *self.subset_ragged_columns(
+                    s.metadata, s.metadata_offset, sites_to_keep, "metadata"
+                ),
+            )
+            site_map = np.full(full.sites.num_rows, tskit.NULL, dtype="int32")
+            site_map[sites_to_keep] = np.arange(tables.sites.num_rows)
+            mutation_map = np.full(
+                full.mutations.num_rows + 1, tskit.NULL, dtype="int32"
+            )
+            mutation_map[muts_to_keep] = np.arange(muts_to_keep.size)
+            # adding tskit.NULL to the end to map -1 -> -1
+            mutation_map = np.concatenate(
+                (mutation_map, np.array([tskit.NULL], dtype="int32"))
+            )
+            tables.mutations.set_columns(
+                site_map[full_sites],
+                node_map[m.node[muts_to_keep]],
+                *self.subset_ragged_columns(
+                    m.derived_state,
+                    m.derived_state_offset,
+                    muts_to_keep,
+                    "derived_state",
+                ),
+                mutation_map[m.parent[muts_to_keep]],
+                *self.subset_ragged_columns(
+                    m.metadata, m.metadata_offset, muts_to_keep, "metadata"
+                ),
+            )
+
+    def get_msprime_mig_example(self, Ne, sample_size, mutations_per_branch=0):
+        M = [[0.0, 0.1], [0.1, 0.0]]
+        population_configurations = [
+            msprime.PopulationConfiguration(sample_size=sample_size),
+            msprime.PopulationConfiguration(sample_size=sample_size),
+        ]
+        ts = msprime.simulate(
+            Ne=Ne,
+            population_configurations=population_configurations,
+            migration_matrix=M,
+            length=2e4,
+            recombination_rate=1e-8,
+            mutation_rate=1e-8,
+            record_migrations=True,
+            random_seed=self.seed,
+        )
+        if mutations_per_branch > 0:
+            ts = tsutil.insert_branch_mutations(ts, mutations_per_branch)
+        # adding metadata and locations
+        ts = tsutil.add_random_metadata(ts, self.seed)
+        ts = tsutil.insert_random_ploidy_individuals(ts, max_ploidy=1)
+        return ts
+
+    def verify_subset_equality(self, tables, nodes):
+        sub1 = tables.copy()
+        sub2 = tables.copy()
+        self.np_subset(sub1, nodes, record_provenance=False)
+        sub2.subset(nodes, record_provenance=False)
+        self.assertEqual(sub1, sub2)
+
+    def verify_subset(self, tables, nodes):
+        self.verify_subset_equality(tables, nodes)
+        subset = tables.copy()
+        subset.subset(nodes, record_provenance=False)
+        # adding one so the last element always maps to NULL (-1 -> -1)
+        node_map = np.repeat(tskit.NULL, tables.nodes.num_rows + 1)
+        indivs = []
+        pops = []
+        for k, n in enumerate(nodes):
+            node_map[n] = k
+            ind = tables.nodes[n].individual
+            pop = tables.nodes[n].population
+            if ind not in indivs and ind != tskit.NULL:
+                indivs.append(ind)
+            if pop not in pops and pop != tskit.NULL:
+                pops.append(pop)
+        ind_map = np.repeat(tskit.NULL, tables.individuals.num_rows + 1)
+        ind_map[indivs] = np.arange(len(indivs), dtype="int32")
+        pop_map = np.repeat(tskit.NULL, tables.populations.num_rows + 1)
+        pop_map[pops] = np.arange(len(pops), dtype="int32")
+        self.assertEqual(subset.nodes.num_rows, len(nodes))
+        for k, n in zip(nodes, subset.nodes):
+            nn = tables.nodes[k]
+            self.assertEqual(nn.time, n.time)
+            self.assertEqual(nn.flags, n.flags)
+            self.assertEqual(nn.metadata, n.metadata)
+            self.assertEqual(ind_map[nn.individual], n.individual)
+            self.assertEqual(pop_map[nn.population], n.population)
+        self.assertEqual(subset.individuals.num_rows, len(indivs))
+        for k, i in zip(indivs, subset.individuals):
+            ii = tables.individuals[k]
+            self.assertEqual(ii, i)
+        self.assertEqual(subset.populations.num_rows, len(pops))
+        for k, p in zip(pops, subset.populations):
+            pp = tables.populations[k]
+            self.assertEqual(pp, p)
+        edges = [
+            i
+            for i, e in enumerate(tables.edges)
+            if e.parent in nodes and e.child in nodes
+        ]
+        self.assertEqual(subset.edges.num_rows, len(edges))
+        for k, e in zip(edges, subset.edges):
+            ee = tables.edges[k]
+            self.assertEqual(ee.left, e.left)
+            self.assertEqual(ee.right, e.right)
+            self.assertEqual(node_map[ee.parent], e.parent)
+            self.assertEqual(node_map[ee.child], e.child)
+            self.assertEqual(ee.metadata, e.metadata)
+        muts = []
+        sites = []
+        for k, m in enumerate(tables.mutations):
+            if m.node in nodes:
+                muts.append(k)
+                if m.site not in sites:
+                    sites.append(m.site)
+        site_map = np.repeat(-1, tables.sites.num_rows)
+        site_map[sites] = np.arange(len(sites), dtype="int32")
+        mutation_map = np.repeat(tskit.NULL, tables.mutations.num_rows + 1)
+        mutation_map[muts] = np.arange(len(muts), dtype="int32")
+        self.assertEqual(subset.sites.num_rows, len(sites))
+        for k, s in zip(sites, subset.sites):
+            ss = tables.sites[k]
+            self.assertEqual(ss, s)
+        self.assertEqual(subset.mutations.num_rows, len(muts))
+        for k, m in zip(muts, subset.mutations):
+            mm = tables.mutations[k]
+            self.assertEqual(mutation_map[mm.parent], m.parent)
+            self.assertEqual(site_map[mm.site], m.site)
+            self.assertEqual(node_map[mm.node], m.node)
+            self.assertEqual(mm.derived_state, m.derived_state)
+            self.assertEqual(mm.metadata, m.metadata)
+        migs = [i for i, mig in enumerate(tables.migrations) if mig.node in nodes]
+        self.assertEqual(subset.migrations.num_rows, len(migs))
+        for k, mig in zip(migs, subset.migrations):
+            mmig = tables.migrations[k]
+            self.assertEqual(mmig.left, mig.left)
+            self.assertEqual(mmig.right, mig.right)
+            self.assertEqual(node_map[mmig.node], mig.node)
+            self.assertEqual(pop_map[mmig.source], mig.source)
+            self.assertEqual(pop_map[mmig.dest], mig.dest)
+            self.assertEqual(mmig.time, mig.time)
+            self.assertEqual(mmig.metadata, mig.metadata)
+        self.assertEqual(tables.provenances, subset.provenances)
+
+    def test_subset_all(self):
+        # subsetting to everything shouldn't change things
+        # except the individual ids in the node tables if
+        # there are gaps
+        ts = self.get_msprime_mig_example(
+            Ne=100, sample_size=10, mutations_per_branch=2
+        )
+        tables = ts.tables
+        tables2 = tables.copy()
+        tables2.subset(np.arange(ts.num_nodes), record_provenance=False)
+        tables.provenances.clear()
+        tables2.provenances.clear()
+        tables.individuals.clear()
+        tables2.individuals.clear()
+        tables.nodes.clear()
+        tables2.nodes.clear()
+        self.assertEqual(tables, tables2)
+
+    def test_random_subsets(self):
+        np.random.seed(self.seed)
+        for num_muts in [0, 10]:
+            ts = self.get_msprime_mig_example(
+                Ne=100, sample_size=10, mutations_per_branch=num_muts
+            )
+            tables = ts.tables
+            for n in [2, ts.num_nodes - 10]:
+                nodes = np.random.choice(np.arange(ts.num_nodes), n, replace=False)
+                self.verify_subset(tables, nodes)
+
+    def test_empty_nodes(self):
+        ts = self.get_msprime_mig_example(Ne=100, sample_size=10)
+        tables = ts.tables
+        subset = tables.copy()
+        subset.subset(np.array([]), record_provenance=False)
+        self.assertEqual(subset.nodes.num_rows, 0)
+        self.assertEqual(subset.edges.num_rows, 0)
+        self.assertEqual(subset.populations.num_rows, 0)
+        self.assertEqual(subset.individuals.num_rows, 0)
+        self.assertEqual(subset.migrations.num_rows, 0)
+        self.assertEqual(subset.sites.num_rows, 0)
+        self.assertEqual(subset.mutations.num_rows, 0)
+        self.assertEqual(subset.provenances, tables.provenances)

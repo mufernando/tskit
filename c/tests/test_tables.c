@@ -3212,6 +3212,79 @@ test_table_collection_check_integrity(void)
     tsk_table_collection_free(&tables);
 }
 
+static void
+test_subset(void)
+{
+    int ret;
+    tsk_table_collection_t tables;
+    tsk_table_collection_t tables_copy;
+    int k;
+    tsk_id_t nodes[4];
+
+    ret = tsk_table_collection_init(&tables, 0);
+    CU_ASSERT_EQUAL_FATAL(ret, 0);
+    ret = tsk_table_collection_init(&tables_copy, 0);
+    CU_ASSERT_EQUAL_FATAL(ret, 0);
+
+    // does not error on empty tables
+    ret = tsk_table_collection_subset(&tables, NULL, 0);
+    CU_ASSERT_EQUAL_FATAL(ret, 0);
+
+    // four nodes from two diploids; the first is from pop 0
+    ret = tsk_node_table_add_row(&tables.nodes, TSK_NODE_IS_SAMPLE, 0.0, 0, 0, NULL, 0);
+    CU_ASSERT_FATAL(ret >= 0);
+    ret = tsk_node_table_add_row(&tables.nodes, TSK_NODE_IS_SAMPLE, 0.0, 0, 0, NULL, 0);
+    CU_ASSERT_FATAL(ret >= 0);
+    ret = tsk_node_table_add_row(
+        &tables.nodes, TSK_NODE_IS_SAMPLE, 0.0, TSK_NULL, 1, NULL, 0);
+    CU_ASSERT_FATAL(ret >= 0);
+    ret = tsk_node_table_add_row(
+        &tables.nodes, TSK_NODE_IS_SAMPLE, 0.0, TSK_NULL, 1, NULL, 0);
+    CU_ASSERT_FATAL(ret >= 0);
+    ret = tsk_individual_table_add_row(&tables.individuals, 0, NULL, 0, NULL, 0);
+    CU_ASSERT_FATAL(ret >= 0);
+    ret = tsk_individual_table_add_row(&tables.individuals, 0, NULL, 0, NULL, 0);
+    CU_ASSERT_FATAL(ret >= 0);
+    ret = tsk_population_table_add_row(&tables.populations, NULL, 0);
+    CU_ASSERT_FATAL(ret >= 0);
+    ret = tsk_edge_table_add_row(&tables.edges, 0.0, 1.0, 1, 0, NULL, 0);
+    CU_ASSERT_FATAL(ret >= 0);
+
+    // empty nodes should get empty tables
+    ret = tsk_table_collection_copy(&tables, &tables_copy, TSK_NO_INIT);
+    CU_ASSERT_EQUAL_FATAL(ret, 0);
+    ret = tsk_table_collection_subset(&tables_copy, NULL, 0);
+    CU_ASSERT_EQUAL_FATAL(ret, 0);
+    CU_ASSERT_EQUAL_FATAL(tables_copy.nodes.num_rows, 0);
+    CU_ASSERT_EQUAL_FATAL(tables_copy.individuals.num_rows, 0);
+    CU_ASSERT_EQUAL_FATAL(tables_copy.populations.num_rows, 0);
+
+    // the identity transformation
+    for (k = 0; k < 4; k++) {
+        nodes[k] = k;
+    }
+    ret = tsk_table_collection_copy(&tables, &tables_copy, TSK_NO_INIT);
+    CU_ASSERT_EQUAL_FATAL(ret, 0);
+    ret = tsk_table_collection_subset(&tables_copy, nodes, 4);
+    CU_ASSERT_EQUAL_FATAL(ret, 0);
+    CU_ASSERT_FATAL(tsk_table_collection_equals(&tables, &tables_copy));
+
+    // reverse twice should get back to the start
+    for (k = 0; k < 4; k++) {
+        nodes[k] = 3 - k;
+    }
+    ret = tsk_table_collection_copy(&tables, &tables_copy, TSK_NO_INIT);
+    CU_ASSERT_EQUAL_FATAL(ret, 0);
+    ret = tsk_table_collection_subset(&tables_copy, nodes, 4);
+    CU_ASSERT_EQUAL_FATAL(ret, 0);
+    ret = tsk_table_collection_subset(&tables_copy, nodes, 4);
+    CU_ASSERT_EQUAL_FATAL(ret, 0);
+    CU_ASSERT_FATAL(tsk_table_collection_equals(&tables, &tables_copy));
+
+    tsk_table_collection_free(&tables_copy);
+    tsk_table_collection_free(&tables);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -3257,6 +3330,7 @@ main(int argc, char **argv)
         { "test_column_overflow", test_column_overflow },
         { "test_table_collection_check_integrity",
             test_table_collection_check_integrity },
+        { "test_subset", test_subset },
         { NULL, NULL },
     };
 

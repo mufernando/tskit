@@ -2410,6 +2410,24 @@ int tsk_table_collection_simplify(tsk_table_collection_t *self, tsk_id_t *sample
     tsk_size_t num_samples, tsk_flags_t options, tsk_id_t *node_map);
 
 /**
+@brief Subsets a table collection by a set of nodes.
+
+@rst
+Reduces the table collection, retaining only the nodes given in ``nodes``,
+the individuals and populations referred to by those nodes in the order that they
+are first referred to, the mutations and migrations that refer to those nodes,
+and the sites that have remaining mutations.
+@endrst
+
+@param self A pointer to a tsk_table_collection_t object.
+@param nodes An array of num_nodes valid node IDs.
+@param num_nodes The number of node IDs in the input nodes array.
+@return Return 0 on success or a negative value on failure.
+*/
+int tsk_table_collection_subset(
+    tsk_table_collection_t *self, tsk_id_t *nodes, size_t num_nodes);
+
+/**
 @brief Set the metadata
 @rst
 Copies the metadata string to this table collection, replacing any existing.

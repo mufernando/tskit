@@ -7799,6 +7799,465 @@ tsk_table_collection_clear(tsk_table_collection_t *self)
     return tsk_table_collection_truncate(self, &start);
 }
 
+static int TSK_WARN_UNUSED
+node_table_copy_row(tsk_node_table_t *source, tsk_node_table_t *dest, tsk_id_t row,
+    tsk_id_t *population_map, tsk_id_t *individual_map)
+{
+    int ret = 0;
+    tsk_id_t pop, ind;
+    tsk_size_t metadata_length;
+    if (row >= (tsk_id_t) source->num_rows) {
+        ret = TSK_ERR_NODE_OUT_OF_BOUNDS;
+        goto out;
+    }
+    pop = source->population[row];
+    if (pop >= 0) {
+        pop = population_map[pop];
+    }
+    ind = source->individual[row];
+    if (ind >= 0) {
+        ind = individual_map[ind];
+    }
+    metadata_length = source->metadata_offset[row + 1] - source->metadata_offset[row];
+    ret = tsk_node_table_add_row(dest, source->flags[row], source->time[row], pop, ind,
+        source->metadata + source->metadata_offset[row], metadata_length);
+    if (ret < 0) {
+        goto out;
+    }
+out:
+    return ret;
+}
+
+static int TSK_WARN_UNUSED
+individual_table_copy_row(
+    tsk_individual_table_t *source, tsk_individual_table_t *dest, tsk_id_t row)
+{
+    int ret = 0;
+    tsk_size_t metadata_length;
+    tsk_size_t location_length;
+    if (row >= (tsk_id_t) source->num_rows) {
+        ret = TSK_ERR_INDIVIDUAL_OUT_OF_BOUNDS;
+        goto out;
+    }
+    metadata_length = source->metadata_offset[row + 1] - source->metadata_offset[row];
+    location_length = source->location_offset[row + 1] - source->location_offset[row];
+    ret = tsk_individual_table_add_row(dest, source->flags[row],
+        source->location + source->location_offset[row], location_length,
+        source->metadata + source->metadata_offset[row], metadata_length);
+    if (ret < 0) {
+        goto out;
+    }
+out:
+    return ret;
+}
+
+static int TSK_WARN_UNUSED
+population_table_copy_row(
+    tsk_population_table_t *source, tsk_population_table_t *dest, tsk_id_t row)
+{
+    int ret = 0;
+    tsk_size_t metadata_length;
+    if (row >= (tsk_id_t) source->num_rows) {
+        ret = TSK_ERR_POPULATION_OUT_OF_BOUNDS;
+        goto out;
+    }
+    metadata_length = source->metadata_offset[row + 1] - source->metadata_offset[row];
+    ret = tsk_population_table_add_row(
+        dest, source->metadata + source->metadata_offset[row], metadata_length);
+    if (ret < 0) {
+        goto out;
+    }
+out:
+    return ret;
+}
+
+static int TSK_WARN_UNUSED
+edge_table_copy_row(
+    tsk_edge_table_t *source, tsk_edge_table_t *dest, tsk_id_t row, tsk_id_t *node_map)
+{
+    int ret = 0;
+    tsk_size_t metadata_length;
+    tsk_id_t p, c;
+    if (row >= (tsk_id_t) source->num_rows) {
+        ret = TSK_ERR_EDGE_OUT_OF_BOUNDS;
+        goto out;
+    }
+    p = node_map[source->parent[row]];
+    c = node_map[source->child[row]];
+    metadata_length = source->metadata_offset[row + 1] - source->metadata_offset[row];
+    ret = tsk_edge_table_add_row(dest, source->left[row], source->right[row], p, c,
+        source->metadata + source->metadata_offset[row], metadata_length);
+    if (ret < 0) {
+        goto out;
+    }
+out:
+    return ret;
+}
+
+static int TSK_WARN_UNUSED
+mutation_table_copy_row(tsk_mutation_table_t *source, tsk_mutation_table_t *dest,
+    tsk_id_t row, tsk_id_t *site_map, tsk_id_t *node_map, tsk_id_t *mutation_map)
+{
+    int ret = 0;
+    tsk_size_t metadata_length;
+    tsk_size_t derived_state_length;
+    tsk_id_t s, n, p;
+    if (row >= (tsk_id_t) source->num_rows) {
+        ret = TSK_ERR_MUTATION_OUT_OF_BOUNDS;
+        goto out;
+    }
+    s = source->site[row];
+    if (s >= 0) {
+        s = site_map[s];
+    }
+    n = source->node[row];
+    if (n >= 0) {
+        n = node_map[n];
+    }
+    p = source->parent[row];
+    if (p >= 0) {
+        p = mutation_map[p];
+    }
+    metadata_length = source->metadata_offset[row + 1] - source->metadata_offset[row];
+    derived_state_length
+        = source->derived_state_offset[row + 1] - source->derived_state_offset[row];
+    ret = tsk_mutation_table_add_row(dest, s, n, p,
+        source->derived_state + source->derived_state_offset[row], derived_state_length,
+        source->metadata + source->metadata_offset[row], metadata_length);
+    if (ret < 0) {
+        goto out;
+    }
+out:
+    return ret;
+}
+
+static int TSK_WARN_UNUSED
+site_table_copy_row(tsk_site_table_t *source, tsk_site_table_t *dest, tsk_id_t row)
+{
+    int ret = 0;
+    tsk_size_t metadata_length;
+    tsk_size_t ancestral_state_length;
+    if (row >= (tsk_id_t) source->num_rows) {
+        ret = TSK_ERR_SITE_OUT_OF_BOUNDS;
+        goto out;
+    }
+    metadata_length = source->metadata_offset[row + 1] - source->metadata_offset[row];
+    ancestral_state_length
+        = source->ancestral_state_offset[row + 1] - source->ancestral_state_offset[row];
+    ret = tsk_site_table_add_row(dest, source->position[row],
+        source->ancestral_state + source->ancestral_state_offset[row],
+        ancestral_state_length, source->metadata + source->metadata_offset[row],
+        metadata_length);
+    if (ret < 0) {
+        goto out;
+    }
+out:
+    return ret;
+}
+
+static int TSK_WARN_UNUSED
+migration_table_copy_row(tsk_migration_table_t *source, tsk_migration_table_t *dest,
+    tsk_id_t row, tsk_id_t *node_map, tsk_id_t *population_map)
+{
+    int ret = 0;
+    tsk_size_t metadata_length;
+    if (row >= (tsk_id_t) source->num_rows) {
+        ret = TSK_ERR_MIGRATION_OUT_OF_BOUNDS;
+        goto out;
+    }
+    metadata_length = source->metadata_offset[row + 1] - source->metadata_offset[row];
+    ret = tsk_migration_table_add_row(dest, source->left[row], source->right[row],
+        node_map[source->node[row]], population_map[source->source[row]],
+        population_map[source->dest[row]], source->time[row],
+        source->metadata + source->metadata_offset[row], metadata_length);
+    if (ret < 0) {
+        goto out;
+    }
+out:
+    return ret;
+}
+
+int TSK_WARN_UNUSED
+tsk_table_collection_subset(
+    tsk_table_collection_t *self, tsk_id_t *nodes, size_t num_nodes)
+{
+    int ret = 0;
+    tsk_id_t k, n, m, ind, pop, mut, site;
+    tsk_id_t *node_map, *individual_map, *population_map, *site_map, *mutation_map;
+    tsk_table_collection_t tables;
+
+    node_map = calloc(self->nodes.num_rows, sizeof(tsk_id_t));
+    individual_map = calloc(self->individuals.num_rows, sizeof(tsk_id_t));
+    population_map = calloc(self->populations.num_rows, sizeof(tsk_id_t));
+    site_map = calloc(self->sites.num_rows, sizeof(tsk_id_t));
+    mutation_map = calloc(self->mutations.num_rows, sizeof(tsk_id_t));
+    if (node_map == NULL || individual_map == NULL || population_map == NULL
+        || site_map == NULL || mutation_map == NULL) {
+        ret = TSK_ERR_NO_MEMORY;
+        goto out;
+    }
+    memset(node_map, 0xff, self->nodes.num_rows * sizeof(tsk_id_t));
+    memset(individual_map, 0xff, self->individuals.num_rows * sizeof(tsk_id_t));
+    memset(population_map, 0xff, self->populations.num_rows * sizeof(tsk_id_t));
+    memset(site_map, 0xff, self->sites.num_rows * sizeof(tsk_id_t));
+    memset(mutation_map, 0xff, self->mutations.num_rows * sizeof(tsk_id_t));
+
+    ret = tsk_table_collection_copy(self, &tables, 0);
+    if (ret != 0) {
+        goto out;
+    }
+    ret = tsk_table_collection_clear(self);
+    if (ret != 0) {
+        goto out;
+    }
+
+    // nodes, individuals, populations
+    for (k = 0; k < (tsk_id_t) num_nodes; k++) {
+        n = nodes[k];
+        node_map[n] = k;
+        ind = tables.nodes.individual[n];
+        if (ind >= 0) {
+            if (individual_map[ind] < 0) {
+                ret = individual_table_copy_row(
+                    &tables.individuals, &self->individuals, ind);
+                if (ret < 0) {
+                    goto out;
+                }
+                individual_map[ind] = ret;
+            }
+        }
+        pop = tables.nodes.population[n];
+        if (pop >= 0) {
+            if (population_map[pop] < 0) {
+                ret = population_table_copy_row(
+                    &tables.populations, &self->populations, pop);
+                if (ret < 0) {
+                    goto out;
+                }
+                population_map[tables.nodes.population[n]] = ret;
+            }
+        }
+        ret = node_table_copy_row(
+            &tables.nodes, &self->nodes, n, population_map, individual_map);
+        if (ret < 0) {
+            goto out;
+        }
+    }
+
+    // edges
+    for (k = 0; k < (tsk_id_t) tables.edges.num_rows; k++) {
+        m = node_map[tables.edges.parent[k]];
+        n = node_map[tables.edges.child[k]];
+        if ((n >= 0) && (m >= 0)) {
+            ret = edge_table_copy_row(&tables.edges, &self->edges, k, node_map);
+            if (ret < 0) {
+                goto out;
+            }
+        }
+    }
+
+    // mutations and sites
+    mut = 0;
+    for (site = 0; site < (tsk_id_t) tables.sites.num_rows; site++) {
+        while ((mut < (tsk_id_t) tables.mutations.num_rows)
+               && (tables.mutations.site[mut] == site)) {
+            n = node_map[tables.mutations.node[mut]];
+            if (n >= 0) {
+                if (site_map[site] < 0) {
+                    ret = site_table_copy_row(&tables.sites, &self->sites, site);
+                    if (ret < 0) {
+                        goto out;
+                    }
+                    site_map[site] = ret;
+                }
+                ret = mutation_table_copy_row(&tables.mutations, &self->mutations, mut,
+                    site_map, node_map, mutation_map);
+                if (ret < 0) {
+                    goto out;
+                }
+                mutation_map[mut] = ret;
+            }
+            mut++;
+        }
+    }
+
+    // migrations
+    for (k = 0; k < (tsk_id_t) tables.migrations.num_rows; k++) {
+        n = tables.migrations.node[k];
+        if (node_map[n] >= 0) {
+            ret = migration_table_copy_row(
+                &tables.migrations, &self->migrations, k, node_map, population_map);
+            if (ret < 0) {
+                goto out;
+            }
+        }
+    }
+
+    // provenance (new record is added in python)
+    ret = tsk_provenance_table_copy(
+        &tables.provenances, &self->provenances, TSK_NO_INIT);
+    if (ret < 0) {
+        goto out;
+    }
+
+out:
+    tsk_safe_free(node_map);
+    tsk_safe_free(individual_map);
+    tsk_safe_free(population_map);
+    tsk_safe_free(site_map);
+    tsk_safe_free(mutation_map);
+    tsk_table_collection_free(&tables);
+    return ret;
+}
+
+int TSK_WARN_UNUSED
+tsk_table_collection_union(
+    tsk_table_collection_t *self, tsk_table_collection_t *other, 
+    tsk_id_t *nodes)
+{
+    int ret = 0;
+    tsk_id_t k, n, m, ind, pop, mut, site;
+    tsk_id_t *node_map, *individual_map, *population_map, *site_map, *mutation_map;
+    
+    // nodes relates id in other (index) to equivalent node in self or -1 if not present
+    // maps relates id in other (index) to equivalent id in self
+    node_map = calloc(other->nodes.num_rows, sizeof(tsk_id_t));
+    individual_map = calloc(other->individuals.num_rows, sizeof(tsk_id_t));
+    population_map = calloc(other->populations.num_rows, sizeof(tsk_id_t));
+    site_map = calloc(other->sites.num_rows, sizeof(tsk_id_t));
+    mutation_map = calloc(other->mutations.num_rows, sizeof(tsk_id_t));
+    if (node_map == NULL || individual_map == NULL || population_map == NULL
+        || site_map == NULL || mutation_map == NULL) {
+        ret = TSK_ERR_NO_MEMORY;
+        goto out;
+    }
+    memset(node_map, 0xff, other->nodes.num_rows * sizeof(tsk_id_t));
+    memset(individual_map, 0xff, other->individuals.num_rows * sizeof(tsk_id_t));
+    memset(population_map, 0xff, other->populations.num_rows * sizeof(tsk_id_t));
+    memset(site_map, 0xff, other->sites.num_rows * sizeof(tsk_id_t));
+    memset(mutation_map, 0xff, other->mutations.num_rows * sizeof(tsk_id_t));
+
+    // nodes, individuals, populations
+    for (k = 0; k < other->nodes.num_rows; k++) {
+        if (nodes[k] < 0) {
+            ind = other->nodes.individual[k];
+            if (ind >= 0) {
+                if (individual_map[ind] < 0) {
+                    ret = individual_table_copy_row(
+                        &other->individuals, &self->individuals, ind);
+                    if (ret < 0) {
+                        goto out;
+                    }
+                    individual_map[ind] = ret;
+                }
+            }
+            pop = other->nodes.population[k];
+            if (pop >= 0) {
+                if (population_map[pop] < 0) {
+                    ret = population_table_copy_row(
+                        &other->populations, &self->populations, pop);
+                    if (ret < 0) {
+                        goto out;
+                    }
+                    population_map[pop] = ret;
+                }
+            }
+            ret = node_table_copy_row(
+                &other->nodes, &self->nodes, k, population_map, individual_map);
+            if (ret < 0) {
+                goto out;
+            }
+            node_map[k] = ret;
+        } else {
+            node_map[k] = nodes[k];
+        }
+    }
+
+    // edges
+    for (k = 0; k < (tsk_id_t) other->edges.num_rows; k++) {
+        m = nodes[other->edges.parent[k]];
+        n = nodes[other->edges.child[k]];
+        // either parent or child are new
+        if ((n < 0) || (m < 0)) {
+            ret = edge_table_copy_row(&other->edges, &self->edges, k, node_map);
+            if (ret < 0) {
+                goto out;
+            }
+        }
+    }
+
+    // sites
+    mut = 0;
+    for (site = 0; site < (tsk_id_t) other->sites.num_rows; site++) {
+        while ((mut < (tsk_id_t) other->mutations.num_rows)
+               && (other->mutations.site[mut] == site)) {
+            n = nodes[other->mutations.node[mut]];
+            if (n < 0) {
+                if (site_map[site] < 0) {
+                    ret = site_table_copy_row(&other->sites, &self->sites, site);
+                    if (ret < 0) {
+                        goto out;
+                    }
+                    site_map[site] = ret;
+                }
+                // TODO: set mutation parent to NULL
+                ret = mutation_table_copy_row(&other->mutations, &self->mutations, mut,
+                    site_map, node_map, mutation_map);
+                if (ret < 0) {
+                    goto out;
+                }
+                mutation_map[mut] = ret;
+            }
+            mut++;
+        }
+    }
+    // setting all parents to NULL, so we can compute them later
+    memset(self->mutations.parent, 0xff, self->mutations.num_rows * sizeof(tsk_id_t));
+
+    // migrations
+    for (k = 0; k < (tsk_id_t) other->migrations.num_rows; k++) {
+        n = other->migrations.node[k];
+        if (nodes[n] < 0) {
+            ret = migration_table_copy_row(
+                &other->migrations, &self->migrations, k, node_map, population_map);
+            if (ret < 0) {
+                goto out;
+            }
+        }
+    }
+
+    // TODO: provenance (new record is added in python)
+    if (ret < 0) {
+        goto out;
+    }
+    
+    // deduplicating, sorting, and computing parents
+    ret = tsk_table_collection_sort(&self, 0, 0);
+    if (ret < 0) {
+        goto out;
+    }
+    ret = tsk_table_collection_deduplicate_sites(&self, 0);
+    if (ret < 0) {
+        goto out;
+    }
+    ret = tsk_table_collection_build_index(&self, 0);
+    if (ret < 0) {
+        goto out;
+    }
+    ret = tsk_table_collection_compute_mutation_parents(&self, 0);
+    if (ret < 0) {
+        goto out;
+    }
+
+out:
+    tsk_safe_free(node_map);
+    tsk_safe_free(individual_map);
+    tsk_safe_free(population_map);
+    tsk_safe_free(site_map);
+    tsk_safe_free(mutation_map);
+    return ret;
+}
+
 static int
 cmp_edge_cl(const void *a, const void *b)
 {
