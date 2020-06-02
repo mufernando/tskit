@@ -2149,33 +2149,6 @@ class TableCollection:
         # A deprecated alias for link_ancestors()
         return self.link_ancestors(*args, **kwargs)
 
-    def subset_nodes(self, nodes):
-        """
-        Modifies the tables in place to contain only
-        the entries referring to the provided list of nodes,
-        with nodes reordered according to the order they appear in the list.
-        Specifically, this subsets each of the tables as follows:
-
-        1. Nodes: if in the list of nodes, and in the order provided.
-        2. Individuals and Populations: if referred to by a retained node,
-            and in the order first seen when traversing the list of retained nodes.
-        3. Edges: if both parent and child are retained nodes.
-        4. Mutations: if the mutations' node is a retained node.
-        5. Sites: if any mutations remain at the site after removing mutations.
-        6. Migrations: if the migration's node is a retained node.
-
-        If ``nodes`` is the entire list of nodes in the tables, then the resulting
-        tables will be identical to the original tables, but with nodes
-        (and individuals and populations) reordered.
-
-        **Note:** This is quite different from :meth:`.simplify`: the resulting
-        tables contain only the nodes given, not ancestral ones as well, and
-        does not simplify the relationships in any way.
-
-        :param list[int] nodes: A list of node IDs to retain in the tables.
-        """
-        self.ll_tables.subset_nodes(nodes)
-
     def sort(self, edge_start=0):
         """
         Sorts the tables in place. This ensures that all tree sequence ordering
@@ -2498,18 +2471,35 @@ class TableCollection:
         """
         self.ll_tables.drop_index()
 
+    def subset_nodes(self, nodes):
+        # The C version.
+        nodes = util.safe_np_int_cast(nodes, np.int32)
+        self.ll_tables.subset_nodes(nodes)
+
     def subset(self, nodes, record_provenance=True):
         """
-        Subsets a TableCollection in place and retains (i) the nodes listed in
-        `nodes` and in the order listed, (ii) only mutations whose node entry
-        are in `nodes`, (iii) the sites of the remaining mutations, (iv) the
-        edges whose parent and child are in `nodes`, (v) individuals referred
-        to by the nodes in `nodes` and in the order listed, (vi) only
-        populations referred to by the nodes in `nodes` and in the order
-        listed, and (vii) the migrations whose nodes are in `nodes`. Note that
-        if `nodes` is a permutation of all nodes in the TableCollection, then
-        the subset operation simply reorders the Nodes, Individuals, and
-        Population Tables in the order encountered in `nodes`.
+        Modifies the tables in place to contain only
+        the entries referring to the provided list of nodes,
+        with nodes reordered according to the order they appear in the list.
+        Specifically, this subsets each of the tables as follows:
+
+        1. Nodes: if in the list of nodes, and in the order provided.
+        2. Individuals and Populations: if referred to by a retained node,
+            and in the order first seen when traversing the list of retained nodes.
+        3. Edges: if both parent and child are retained nodes.
+        4. Mutations: if the mutations' node is a retained node.
+        5. Sites: if any mutations remain at the site after removing mutations.
+        6. Migrations: if the migration's node is a retained node.
+
+        If ``nodes`` is the entire list of nodes in the tables, then the resulting
+        tables will be identical to the original tables, but with nodes
+        (and individuals and populations) reordered.
+
+        **Note:** This is quite different from :meth:`.simplify`: the resulting
+        tables contain only the nodes given, not ancestral ones as well, and
+        does not simplify the relationships in any way.
+
+        :param list[int] nodes: A list of node IDs to retain in the tables.
         """
         if nodes.shape[0] == 0:
             raise ValueError("Nodes cannot be empty.")

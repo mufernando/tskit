@@ -6266,7 +6266,7 @@ TableCollection_subset_nodes(TableCollection *self, PyObject *args)
     npy_intp *shape;
     size_t num_nodes;
 
-    if (!PyArg_ParseTuple(args, "i", &nodes)) {
+    if (!PyArg_ParseTuple(args, "O", &nodes)) {
         goto out;
     }
     nodes_array = (PyArrayObject *) PyArray_FROMANY(nodes, NPY_INT32, 1, 1,

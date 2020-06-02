@@ -3212,6 +3212,7 @@ test_table_collection_check_integrity(void)
     tsk_table_collection_free(&tables);
 }
 
+static void
 test_subset_nodes(void)
 {
     int ret;
