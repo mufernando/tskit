@@ -183,19 +183,20 @@ def unpack_arrays(packed, offset):
     return ret
 
 
-def subset_ragged_col(packed, offset, subset, col="metadata"):
+def subset_ragged_columns(packed, offset, subset, name):
     """
     Subsets a pair of ragged columns by the rows specified in `subset`.
     :param numpy.ndarray packed: The flattened array of data.
     :param numpy.ndarray offset: The array of offsets into the ``packed`` array.
-    :return: A dictionary with the subsetted flattened array of data and offsets.
-    :rtype: dict[numpy.ndarray]
+    : param str name: The name of the ragged columns.
+    :return: A tuple with the subsetted flattened array of data and offsets.
+    :rtype: tuple[numpy.ndarray]
 
     """
-    if col in ["ancestral_state", "derived_state", "record", "timestamp"]:
+    if name in ["ancestral_state", "derived_state", "record", "timestamp"]:
         unpack = unpack_strings
         pack = pack_strings
-    elif col == "location":
+    elif name == "location":
         unpack = unpack_arrays
         pack = pack_arrays
     else:
@@ -204,8 +205,7 @@ def subset_ragged_col(packed, offset, subset, col="metadata"):
     use = np.repeat(False, offset.shape[0] - 1)
     use[subset] = True
     unpacked = [x for x, y in zip(unpack(packed, offset), use) if y]
-    packed, offset = pack(unpacked)
-    return {col: packed, col + "_offset": offset}
+    return pack(unpacked)
 
 
 #

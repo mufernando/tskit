@@ -2501,10 +2501,10 @@ class TableCollection:
 
         :param list[int] nodes: A list of node IDs to retain in the tables.
         """
-        if nodes.shape[0] == 0:
+        if nodes.size == 0:
             raise ValueError("Nodes cannot be empty.")
-        if np.max(nodes) >= self.nodes.num_rows:
-            raise ValueError("One of the nodes is not in the TableCollection.")
+        if np.max(nodes) >= self.nodes.num_rows and np.all(nodes > 0):
+            raise ValueError("Node out of bounds")
         tables = self.copy()
         n = tables.nodes
         # figuring out which individuals to keep
@@ -2515,16 +2515,18 @@ class TableCollection:
         # removing -1
         indiv_to_keep = indiv_to_keep[indiv_to_keep != tskit.NULL]
         # subsetting individuals table
-        if indiv_to_keep.shape[0] == 0:
+        if indiv_to_keep.size == 0:
             self.individuals.clear()
         else:
             i = tables.individuals
             self.individuals.set_columns(
-                flags=i.flags[indiv_to_keep],
-                **util.subset_ragged_col(
+                i.flags[indiv_to_keep],
+                *util.subset_ragged_columns(
                     i.location, i.location_offset, indiv_to_keep, "location"
                 ),
-                **util.subset_ragged_col(i.metadata, i.metadata_offset, indiv_to_keep),
+                *util.subset_ragged_columns(
+                    i.metadata, i.metadata_offset, indiv_to_keep, "metadata"
+                ),
             )
         # figuring out which pops to keep
         old_pops = n.population[nodes]
@@ -2532,37 +2534,43 @@ class TableCollection:
         pop_to_keep = pop_to_keep[np.argsort(j)]
         pop_to_keep = pop_to_keep[pop_to_keep != tskit.NULL]
         # subsetting populations table
-        if pop_to_keep.shape[0] == 0:
+        if pop_to_keep.size == 0:
             self.populations.clear()
         else:
             p = tables.populations
             self.populations.set_columns(
-                **util.subset_ragged_col(p.metadata, p.metadata_offset, pop_to_keep)
+                *util.subset_ragged_columns(
+                    p.metadata, p.metadata_offset, pop_to_keep, "metadata"
+                )
             )
         # mapping of ind/pop id in full tables to subset tables
         ind_map = {ind: i for i, ind in enumerate(indiv_to_keep)}
         pop_map = {pop: j for j, pop in enumerate(pop_to_keep)}
+        new_inds = np.array(
+            [ind_map.get(i, tskit.NULL) for i in old_inds], dtype="int32"
+        )
+        new_pops = np.array(
+            [pop_map.get(j, tskit.NULL) for j in old_pops], dtype="int32"
+        )
         # mapping indiv/pop for nodes to keep
-        new_inds = np.array([ind_map.get(i, -1) for i in old_inds], dtype="int32")
-        new_pops = np.array([pop_map.get(j, -1) for j in old_pops], dtype="int32")
         # subsetting nodes table
         self.nodes.set_columns(
-            flags=n.flags[nodes],
-            population=new_pops,
-            individual=new_inds,
-            time=n.time[nodes],
-            **util.subset_ragged_col(n.metadata, n.metadata_offset, nodes),
+            n.flags[nodes],
+            n.time[nodes],
+            new_pops,
+            new_inds,
+            *util.subset_ragged_columns(
+                n.metadata, n.metadata_offset, nodes, "metadata"
+            ),
         )
         # mapping node ids in full to subsetted table
         # making the node map +1 bc last will be mapping -1 to -1
-        node_map = np.repeat(tskit.NULL, tables.nodes.num_rows + 1)
-        node_map[-1] = tskit.NULL
+        node_map = np.full(tables.nodes.num_rows + 1, tskit.NULL, dtype="int32")
         node_map[nodes] = np.arange(self.nodes.num_rows)
-        node_map = node_map.astype("int32")
         # subsetting migrations tables
         mig = tables.migrations
         keep_mig = np.isin(mig.node, nodes)
-        if keep_mig.shape[0] == 0:
+        if keep_mig.size == 0:
             self.migrations.clear()
         else:
             new_sources = np.array(
@@ -2572,67 +2580,75 @@ class TableCollection:
                 [pop_map.get(d, -1) for d in mig.dest[keep_mig]], dtype="int32"
             )
             self.migrations.set_columns(
-                left=mig.left[keep_mig],
-                right=mig.right[keep_mig],
-                node=node_map[mig.node[keep_mig]],
-                source=new_sources,
-                dest=new_dests,
-                time=mig.time[keep_mig],
-                **util.subset_ragged_col(mig.metadata, mig.metadata_offset, keep_mig),
+                mig.left[keep_mig],
+                mig.right[keep_mig],
+                node_map[mig.node[keep_mig]],
+                new_sources,
+                new_dests,
+                mig.time[keep_mig],
+                *util.subset_ragged_columns(
+                    mig.metadata, mig.metadata_offset, keep_mig, "metadata"
+                ),
             )
         e = tables.edges
         # keeping edges connecting nodes
         keep_edges = np.logical_and(np.isin(e.parent, nodes), np.isin(e.child, nodes))
-        if keep_edges.shape[0] == 0:
+        if keep_edges.size == 0:
             self.edges.clear()
         else:
             self.edges.set_columns(
-                left=e.left[keep_edges],
-                right=e.right[keep_edges],
-                parent=node_map[e.parent[keep_edges]],
-                child=node_map[e.child[keep_edges]],
-                **util.subset_ragged_col(e.metadata, e.metadata_offset, keep_edges),
+                e.left[keep_edges],
+                e.right[keep_edges],
+                node_map[e.parent[keep_edges]],
+                node_map[e.child[keep_edges]],
+                *util.subset_ragged_columns(
+                    e.metadata, e.metadata_offset, keep_edges, "metadata"
+                ),
             )
         # subsetting mutation and sites tables
         m = tables.mutations
         s = tables.sites
         # only keeping muts in nodes
-        keep_muts = np.isin(m.node, nodes)
+        keep_muts = np.where(np.isin(m.node, nodes))[0]
         # only keeping sites of muts in nodes
         old_sites = m.site[keep_muts]
         keep_sites = np.unique(old_sites)
-        if keep_sites.shape[0] == 0:
+        if keep_sites.size == 0:
             self.sites.clear()
             self.mutations.clear()
         else:
             self.sites.set_columns(
-                position=s.position[keep_sites],
-                **util.subset_ragged_col(
+                s.position[keep_sites],
+                *util.subset_ragged_columns(
                     s.ancestral_state,
                     s.ancestral_state_offset,
                     keep_sites,
                     "ancestral_state",
                 ),
-                **util.subset_ragged_col(s.metadata, s.metadata_offset, keep_sites),
+                *util.subset_ragged_columns(
+                    s.metadata, s.metadata_offset, keep_sites, "metadata"
+                ),
             )
-            site_map = np.repeat(-1, tables.sites.num_rows)
+            site_map = np.full(tables.sites.num_rows, tskit.NULL, dtype="int32")
             site_map[keep_sites] = np.arange(self.sites.num_rows)
-            site_map = site_map.astype("int32")
-            mutation_map = np.repeat(tskit.NULL, tables.mutations.num_rows)
-            mutation_map[keep_muts] = np.arange(np.count_nonzero(keep_muts))
-            mutation_map = mutation_map.astype("int32")
+            mutation_map = np.full(
+                tables.mutations.num_rows + 1, tskit.NULL, dtype="int32"
+            )
+            mutation_map[keep_muts] = np.arange(keep_muts.size)
             # adding tskit.NULL to the end to map -1 -> -1
             mutation_map = np.concatenate(
                 (mutation_map, np.array([tskit.NULL], dtype="int32"))
             )
             self.mutations.set_columns(
-                site=site_map[old_sites],
-                node=node_map[m.node[keep_muts]],
-                **util.subset_ragged_col(
+                site_map[old_sites],
+                node_map[m.node[keep_muts]],
+                *util.subset_ragged_columns(
                     m.derived_state, m.derived_state_offset, keep_muts, "derived_state"
                 ),
-                parent=mutation_map[m.parent[keep_muts]],
-                **util.subset_ragged_col(m.metadata, m.metadata_offset, keep_muts),
+                mutation_map[m.parent[keep_muts]],
+                *util.subset_ragged_columns(
+                    m.metadata, m.metadata_offset, keep_muts, "metadata"
+                ),
             )
         parameters = {"command": "subset", "nodes": nodes.tolist()}
         if record_provenance:
