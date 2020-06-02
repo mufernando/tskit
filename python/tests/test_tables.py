@@ -2279,17 +2279,6 @@ class TestSubsetTables(unittest.TestCase):
         sub2.subset_nodes(nodes)
         sub1.provenances.clear()
         sub2.provenances.clear()
-        for x, y in [
-            (sub1.nodes, sub2.nodes),
-            (sub1.individuals, sub2.individuals),
-            (sub1.mutations, sub2.mutations),
-            (sub1.sites, sub2.sites),
-        ]:
-            if x != y:
-                print("subset: --------")
-                print(x)
-                print("subset_nodes: --------")
-                print(y)
         self.assertEqual(sub1, sub2)
 
     def verify_subset(self, tables, nodes):
