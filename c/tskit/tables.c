@@ -7971,14 +7971,15 @@ tsk_table_collection_subset_nodes(tsk_table_collection_t *self, tsk_id_t *nodes,
 {
     int ret = 0;
     tsk_id_t k, n, m, ind, pop, mut, site;
-    tsk_id_t *node_map, *individual_map, *population_map, *site_map;
+    tsk_id_t *node_map, *individual_map, *population_map, *site_map, *mutation_map;
     tsk_table_collection_t tables;
 
     node_map = calloc(self->nodes.num_rows, sizeof(tsk_id_t));
     individual_map = calloc(self->individuals.num_rows, sizeof(tsk_id_t));
     population_map = calloc(self->populations.num_rows, sizeof(tsk_id_t));
     site_map = calloc(self->sites.num_rows, sizeof(tsk_id_t));
-    if (node_map == NULL || individual_map == NULL || population_map == NULL || site_map == NULL) {
+    mutation_map = calloc(self->mutations.num_rows, sizeof(tsk_id_t));
+    if (node_map == NULL || individual_map == NULL || population_map == NULL || site_map == NULL || mutation_map == NULL) {
         ret = TSK_ERR_NO_MEMORY;
         goto out;
     }
@@ -7986,6 +7987,7 @@ tsk_table_collection_subset_nodes(tsk_table_collection_t *self, tsk_id_t *nodes,
     memset(individual_map, 0xff, self->individuals.num_rows * sizeof(tsk_id_t));
     memset(population_map, 0xff, self->populations.num_rows * sizeof(tsk_id_t));
     memset(site_map, 0xff, self->sites.num_rows * sizeof(tsk_id_t));
+    memset(mutation_map, 0xff, self->mutations.num_rows * sizeof(tsk_id_t));
 
     ret = tsk_table_collection_copy(self, &tables, 0);
     if (ret != 0) {
@@ -8057,10 +8059,15 @@ tsk_table_collection_subset_nodes(tsk_table_collection_t *self, tsk_id_t *nodes,
                 }
                 tables.mutations.node[mut] = n;
                 tables.mutations.site[mut] = site_map[site];
+                m = tables.mutations.parent[mut];
+                if (m >= 0) {
+                    tables.mutations.parent[mut] = mutation_map[m];
+                }
                 ret = mutation_table_copy_row(&tables.mutations, &self->mutations, mut);
                 if (ret < 0) {
                     goto out;
                 }
+                mutation_map[mut] = ret;
             }
             mut++;
         }
