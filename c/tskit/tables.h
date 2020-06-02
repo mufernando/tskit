@@ -2424,8 +2424,8 @@ and the sites that have remaining mutations.
 @param node_nodes The number of node IDs in the input nodes array.
 @return Return 0 on success or a negative value on failure.
 */
-int tsk_table_collection_subset_nodes(tsk_table_collection_t *self, tsk_id_t *nodes, size_t num_nodes);
-
+int tsk_table_collection_subset_nodes(
+    tsk_table_collection_t *self, tsk_id_t *nodes, size_t num_nodes);
 
 /**
 @brief Set the metadata

@@ -3233,9 +3233,11 @@ test_subset_nodes(void)
     CU_ASSERT_FATAL(ret >= 0);
     ret = tsk_node_table_add_row(&tables.nodes, TSK_NODE_IS_SAMPLE, 0.0, 0, 0, NULL, 0);
     CU_ASSERT_FATAL(ret >= 0);
-    ret = tsk_node_table_add_row(&tables.nodes, TSK_NODE_IS_SAMPLE, 0.0, TSK_NULL, 1, NULL, 0);
+    ret = tsk_node_table_add_row(
+        &tables.nodes, TSK_NODE_IS_SAMPLE, 0.0, TSK_NULL, 1, NULL, 0);
     CU_ASSERT_FATAL(ret >= 0);
-    ret = tsk_node_table_add_row(&tables.nodes, TSK_NODE_IS_SAMPLE, 0.0, TSK_NULL, 1, NULL, 0);
+    ret = tsk_node_table_add_row(
+        &tables.nodes, TSK_NODE_IS_SAMPLE, 0.0, TSK_NULL, 1, NULL, 0);
     CU_ASSERT_FATAL(ret >= 0);
     ret = tsk_individual_table_add_row(&tables.individuals, 0, NULL, 0, NULL, 0);
     CU_ASSERT_FATAL(ret >= 0);
