@@ -202,9 +202,8 @@ def subset_ragged_columns(packed, offset, subset, name):
     else:
         unpack = unpack_bytes
         pack = pack_bytes
-    use = np.repeat(False, offset.shape[0] - 1)
-    use[subset] = True
-    unpacked = [x for x, y in zip(unpack(packed, offset), use) if y]
+    unpacked = unpack(packed, offset)
+    unpacked = [unpacked[i] for i in subset]
     return pack(unpacked)
 
 

@@ -2422,6 +2422,7 @@ class TestSubsetTables(unittest.TestCase):
             ts = self.get_msprime_mig_example(
                 Ne=100, sample_size=10, mutations_per_branch=num_muts
             )
+            ts = tsutil.add_random_metadata(ts, self.seed)
             tables = ts.tables
             for n in [2, ts.num_nodes - 10]:
                 nodes = np.random.choice(np.arange(ts.num_nodes), n, replace=False)

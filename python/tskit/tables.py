@@ -2570,6 +2570,7 @@ class TableCollection:
         # subsetting migrations tables
         mig = tables.migrations
         keep_mig = np.isin(mig.node, nodes)
+        keep_mig = np.where(keep_mig)[0]
         if keep_mig.size == 0:
             self.migrations.clear()
         else:
@@ -2593,6 +2594,7 @@ class TableCollection:
         e = tables.edges
         # keeping edges connecting nodes
         keep_edges = np.logical_and(np.isin(e.parent, nodes), np.isin(e.child, nodes))
+        keep_edges = np.where(keep_edges)[0]
         if keep_edges.size == 0:
             self.edges.clear()
         else:
