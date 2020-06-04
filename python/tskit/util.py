@@ -183,30 +183,6 @@ def unpack_arrays(packed, offset):
     return ret
 
 
-def subset_ragged_columns(packed, offset, subset, name):
-    """
-    Subsets a pair of ragged columns by the rows specified in `subset`.
-    :param numpy.ndarray packed: The flattened array of data.
-    :param numpy.ndarray offset: The array of offsets into the ``packed`` array.
-    : param str name: The name of the ragged columns.
-    :return: A tuple with the subsetted flattened array of data and offsets.
-    :rtype: tuple[numpy.ndarray]
-
-    """
-    if name in ["ancestral_state", "derived_state", "record", "timestamp"]:
-        unpack = unpack_strings
-        pack = pack_strings
-    elif name == "location":
-        unpack = unpack_arrays
-        pack = pack_arrays
-    else:
-        unpack = unpack_bytes
-        pack = pack_bytes
-    unpacked = unpack(packed, offset)
-    unpacked = [unpacked[i] for i in subset]
-    return pack(unpacked)
-
-
 #
 # Interval utilities
 #
