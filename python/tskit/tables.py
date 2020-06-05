@@ -2472,7 +2472,31 @@ class TableCollection:
         self.ll_tables.drop_index()
 
     def subset_nodes(self, nodes, record_provenance=True):
-        # The C version.
+        """
+        Modifies the tables in place to contain only the entries referring to
+        the provided list of nodes, with nodes reordered according to the order
+        they appear in the list.  Specifically, this subsets each of the tables
+        as follows:
+
+        1. Nodes: if in the list of nodes, and in the order provided.
+        2. Individuals and Populations: if referred to by a retained node,
+        and in the order first seen when traversing the list of retained nodes.
+        3. Edges: if both parent and child are retained nodes.
+        4. Mutations: if the mutations' node is a retained node.
+        5. Sites: if any mutations remain at the site after removing mutations.
+        6. Migrations: if the migration's node is a retained node.
+
+        If ``nodes`` is the entire list of nodes in the tables, then the
+        resulting tables will be identical to the original tables, but with
+        nodes (and individuals and populations) reordered.
+
+        To subset the tables to a portion of the genome, see
+        :meth:`.keep_intervals`.
+
+        **Note:** This is quite different from :meth:`.simplify`: the resulting
+        tables contain only the nodes given, not ancestral ones as well, and
+        does not simplify the relationships in any way.
+        """
         nodes = util.safe_np_int_cast(nodes, np.int32)
         self.ll_tables.subset_nodes(nodes)
         parameters = {"command": "subset", "nodes": nodes.tolist()}
