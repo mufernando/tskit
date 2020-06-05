@@ -2460,6 +2460,9 @@ class TestSubsetTables(unittest.TestCase):
         )
         if mutations_per_branch > 0:
             ts = tsutil.insert_branch_mutations(ts, mutations_per_branch)
+        # adding metadata and locations
+        ts = tsutil.add_random_metadata(ts, self.seed)
+        ts = tsutil.insert_random_ploidy_individuals(ts, max_ploidy=1)
         return ts
 
     def verify_subset_equality(self, tables, nodes):
@@ -2552,38 +2555,24 @@ class TestSubsetTables(unittest.TestCase):
             self.assertEqual(pop_map[mmig.dest], mig.dest)
             self.assertEqual(mmig.time, mig.time)
             self.assertEqual(mmig.metadata, mig.metadata)
-        nsp = subset.provenances.num_rows
-        ntp = tables.provenances.num_rows
-        self.assertTrue((nsp == ntp) or (nsp == ntp + 1))
+        self.assertEqual(tables.provenances, subset.provenances)
 
     def test_subset_all(self):
         # subsetting to everything shouldn't change things
+        # except the individual ids in the node tables if
+        # there are gaps
         ts = self.get_msprime_mig_example(
             Ne=100, sample_size=10, mutations_per_branch=2
         )
         tables = ts.tables
         tables2 = tables.copy()
-        tables2.subset_nodes(np.arange(ts.num_nodes))
-        # except that you need one extra row in the provenances
-        self.assertEqual(tables.provenances.num_rows + 1, tables2.provenances.num_rows)
+        tables2.subset_nodes(np.arange(ts.num_nodes), record_provenance=False)
         tables.provenances.clear()
         tables2.provenances.clear()
-        self.assertEqual(tables, tables2)
-
-    def test_subset_permutation(self):
-        # reversing twice should get us back where we started
-        ts = self.get_msprime_mig_example(
-            Ne=100, sample_size=10, mutations_per_branch=2
-        )
-        tables = ts.tables
-        tables2 = tables.copy()
-        tables2.subset_nodes(np.arange(ts.num_nodes - 1, -1, -1))
-        tables.provenances.clear()
-        tables2.provenances.clear()
-        self.assertNotEqual(tables, tables2)
-        tables2.subset_nodes(np.arange(ts.num_nodes - 1, -1, -1))
-        tables.provenances.clear()
-        tables2.provenances.clear()
+        tables.individuals.clear()
+        tables2.individuals.clear()
+        tables.nodes.clear()
+        tables2.nodes.clear()
         self.assertEqual(tables, tables2)
 
     def test_random_subsets(self):
@@ -2592,9 +2581,6 @@ class TestSubsetTables(unittest.TestCase):
             ts = self.get_msprime_mig_example(
                 Ne=100, sample_size=10, mutations_per_branch=num_muts
             )
-            ts = tsutil.add_random_metadata(ts, self.seed)
-            # adding locations
-            ts = tsutil.insert_random_ploidy_individuals(ts, max_ploidy=1)
             tables = ts.tables
             for n in [2, ts.num_nodes - 10]:
                 nodes = np.random.choice(np.arange(ts.num_nodes), n, replace=False)
