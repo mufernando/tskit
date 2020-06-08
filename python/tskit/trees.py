@@ -4401,12 +4401,12 @@ class TreeSequence:
         tables.trim(record_provenance)
         return tables.tree_sequence()
 
-    def subset_nodes(self, nodes, record_provenance=True):
+    def subset(self, nodes, record_provenance=True):
         """
         TODO: document (see table collection method).
         """
         tables = self.dump_tables()
-        return tables.subset_nodes(nodes, record_provenance).tree_sequence()
+        return tables.subset(nodes, record_provenance).tree_sequence()
 
     def draw_svg(
         self,
