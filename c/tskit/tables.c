@@ -8104,6 +8104,7 @@ out:
     tsk_safe_free(individual_map);
     tsk_safe_free(population_map);
     tsk_safe_free(site_map);
+    tsk_safe_free(mutation_map);
     return ret;
 }
 
