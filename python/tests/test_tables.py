@@ -2469,13 +2469,13 @@ class TestSubsetTables(unittest.TestCase):
         sub1 = tables.copy()
         sub2 = tables.copy()
         self.np_subset(sub1, nodes, record_provenance=False)
-        sub2.subset_nodes(nodes, record_provenance=False)
+        sub2.subset(nodes, record_provenance=False)
         self.assertEqual(sub1, sub2)
 
     def verify_subset(self, tables, nodes):
         self.verify_subset_equality(tables, nodes)
         subset = tables.copy()
-        subset.subset_nodes(nodes, record_provenance=False)
+        subset.subset(nodes, record_provenance=False)
         # adding one so the last element always maps to NULL (-1 -> -1)
         node_map = np.repeat(tskit.NULL, tables.nodes.num_rows + 1)
         indivs = []
@@ -2566,7 +2566,7 @@ class TestSubsetTables(unittest.TestCase):
         )
         tables = ts.tables
         tables2 = tables.copy()
-        tables2.subset_nodes(np.arange(ts.num_nodes), record_provenance=False)
+        tables2.subset(np.arange(ts.num_nodes), record_provenance=False)
         tables.provenances.clear()
         tables2.provenances.clear()
         tables.individuals.clear()
@@ -2590,7 +2590,7 @@ class TestSubsetTables(unittest.TestCase):
         ts = self.get_msprime_mig_example(Ne=100, sample_size=10)
         tables = ts.tables
         subset = tables.copy()
-        subset.subset_nodes(np.array([]), record_provenance=False)
+        subset.subset(np.array([]), record_provenance=False)
         self.assertEqual(subset.nodes.num_rows, 0)
         self.assertEqual(subset.edges.num_rows, 0)
         self.assertEqual(subset.populations.num_rows, 0)

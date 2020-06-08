@@ -7978,7 +7978,7 @@ out:
 }
 
 int TSK_WARN_UNUSED
-tsk_table_collection_subset_nodes(
+tsk_table_collection_subset(
     tsk_table_collection_t *self, tsk_id_t *nodes, size_t num_nodes)
 {
     int ret = 0;

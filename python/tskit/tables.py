@@ -2471,7 +2471,7 @@ class TableCollection:
         """
         self.ll_tables.drop_index()
 
-    def subset_nodes(self, nodes, record_provenance=True):
+    def subset(self, nodes, record_provenance=True):
         """
         Modifies the tables in place to contain only the entries referring to
         the provided list of nodes, with nodes reordered according to the order
@@ -2498,7 +2498,7 @@ class TableCollection:
         does not simplify the relationships in any way.
         """
         nodes = util.safe_np_int_cast(nodes, np.int32)
-        self.ll_tables.subset_nodes(nodes)
+        self.ll_tables.subset(nodes)
         parameters = {"command": "subset", "nodes": nodes.tolist()}
         if record_provenance:
             self.provenances.add_row(

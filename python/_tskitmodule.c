@@ -6257,7 +6257,7 @@ out:
 }
 
 static PyObject *
-TableCollection_subset_nodes(TableCollection *self, PyObject *args)
+TableCollection_subset(TableCollection *self, PyObject *args)
 {
     int err;
     PyObject *ret = NULL;
@@ -6277,7 +6277,7 @@ TableCollection_subset_nodes(TableCollection *self, PyObject *args)
     shape = PyArray_DIMS(nodes_array);
     num_nodes = shape[0];
 
-    err = tsk_table_collection_subset_nodes(self->tables, PyArray_DATA(nodes_array), num_nodes);
+    err = tsk_table_collection_subset(self->tables, PyArray_DATA(nodes_array), num_nodes);
     if (err != 0) {
         handle_library_error(err);
         goto out;
@@ -6429,7 +6429,7 @@ static PyMethodDef TableCollection_methods[] = {
     {"link_ancestors", (PyCFunction) TableCollection_link_ancestors,
         METH_VARARGS|METH_KEYWORDS,
         "Returns an edge table linking samples to a set of specified ancestors." },
-    {"subset_nodes", (PyCFunction) TableCollection_subset_nodes, METH_VARARGS,
+    {"subset", (PyCFunction) TableCollection_subset, METH_VARARGS,
         "Subsets the tree sequence to a set of nodes." },
     {"sort", (PyCFunction) TableCollection_sort, METH_VARARGS|METH_KEYWORDS,
         "Sorts the tables to satisfy tree sequence requirements." },

@@ -3213,7 +3213,7 @@ test_table_collection_check_integrity(void)
 }
 
 static void
-test_subset_nodes(void)
+test_subset(void)
 {
     int ret;
     tsk_table_collection_t tables;
@@ -3225,7 +3225,7 @@ test_subset_nodes(void)
     CU_ASSERT_EQUAL_FATAL(ret, 0);
 
     // does not error on empty tables
-    ret = tsk_table_collection_subset_nodes(&tables, NULL, 0);
+    ret = tsk_table_collection_subset(&tables, NULL, 0);
     CU_ASSERT_EQUAL_FATAL(ret, 0);
 
     // four nodes from two diploids; the first is from pop 0
@@ -3251,7 +3251,7 @@ test_subset_nodes(void)
     // empty nodes should get empty tables
     ret = tsk_table_collection_copy(&tables, &tables_copy, 0);
     CU_ASSERT_EQUAL_FATAL(ret, 0);
-    ret = tsk_table_collection_subset_nodes(&tables_copy, NULL, 0);
+    ret = tsk_table_collection_subset(&tables_copy, NULL, 0);
     CU_ASSERT_EQUAL_FATAL(ret, 0);
     CU_ASSERT_EQUAL_FATAL(tables_copy.nodes.num_rows, 0);
     CU_ASSERT_EQUAL_FATAL(tables_copy.individuals.num_rows, 0);
@@ -3263,7 +3263,7 @@ test_subset_nodes(void)
     }
     ret = tsk_table_collection_copy(&tables, &tables_copy, 0);
     CU_ASSERT_EQUAL_FATAL(ret, 0);
-    ret = tsk_table_collection_subset_nodes(&tables_copy, nodes, 4);
+    ret = tsk_table_collection_subset(&tables_copy, nodes, 4);
     CU_ASSERT_EQUAL_FATAL(ret, 0);
     CU_ASSERT_FATAL(tsk_table_collection_equals(&tables, &tables_copy));
 
@@ -3273,9 +3273,9 @@ test_subset_nodes(void)
     }
     ret = tsk_table_collection_copy(&tables, &tables_copy, 0);
     CU_ASSERT_EQUAL_FATAL(ret, 0);
-    ret = tsk_table_collection_subset_nodes(&tables_copy, nodes, 4);
+    ret = tsk_table_collection_subset(&tables_copy, nodes, 4);
     CU_ASSERT_EQUAL_FATAL(ret, 0);
-    ret = tsk_table_collection_subset_nodes(&tables_copy, nodes, 4);
+    ret = tsk_table_collection_subset(&tables_copy, nodes, 4);
     CU_ASSERT_EQUAL_FATAL(ret, 0);
     CU_ASSERT_FATAL(tsk_table_collection_equals(&tables, &tables_copy));
 
@@ -3328,7 +3328,7 @@ main(int argc, char **argv)
         { "test_column_overflow", test_column_overflow },
         { "test_table_collection_check_integrity",
             test_table_collection_check_integrity },
-        { "test_subset_nodes", test_subset_nodes },
+        { "test_subset", test_subset },
         { NULL, NULL },
     };
 
