@@ -8085,9 +8085,6 @@ tsk_table_collection_subset_nodes(
     for (k = 0; k < (tsk_id_t) tables.migrations.num_rows; k++) {
         n = tables.migrations.node[k];
         if (node_map[n] >= 0) {
-            tables.migrations.node[k] = node_map[n];
-            tables.migrations.source[k] = population_map[tables.migrations.source[k]];
-            tables.migrations.dest[k] = population_map[tables.migrations.dest[k]];
             ret = migration_table_copy_row(
                 &tables.migrations, &self->migrations, k, node_map, population_map);
             if (ret < 0) {
