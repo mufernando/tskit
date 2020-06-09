@@ -8048,7 +8048,7 @@ tsk_table_collection_subset(
     for (k = 0; k < (tsk_id_t) tables.edges.num_rows; k++) {
         m = node_map[tables.edges.parent[k]];
         n = node_map[tables.edges.child[k]];
-        if ((n >= 0) & (m >= 0)) {
+        if ((n >= 0) && (m >= 0)) {
             ret = edge_table_copy_row(&tables.edges, &self->edges, k, node_map);
             if (ret < 0) {
                 goto out;
@@ -8060,7 +8060,7 @@ tsk_table_collection_subset(
     mut = 0;
     for (site = 0; site < (tsk_id_t) tables.sites.num_rows; site++) {
         while ((mut < (tsk_id_t) tables.mutations.num_rows)
-               & (tables.mutations.site[mut] == site)) {
+               && (tables.mutations.site[mut] == site)) {
             n = node_map[tables.mutations.node[mut]];
             if (n >= 0) {
                 if (site_map[site] < 0) {
@@ -8093,8 +8093,9 @@ tsk_table_collection_subset(
         }
     }
 
-    // TODO: add provenance
-    ret = tsk_provenance_table_copy(&tables.provenances, &self->provenances, 0);
+    // provenance (new record is added in python)
+    ret = tsk_provenance_table_copy(
+        &tables.provenances, &self->provenances, TSK_NO_INIT);
     if (ret < 0) {
         goto out;
     }

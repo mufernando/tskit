@@ -3223,6 +3223,8 @@ test_subset(void)
 
     ret = tsk_table_collection_init(&tables, 0);
     CU_ASSERT_EQUAL_FATAL(ret, 0);
+    ret = tsk_table_collection_init(&tables_copy, 0);
+    CU_ASSERT_EQUAL_FATAL(ret, 0);
 
     // does not error on empty tables
     ret = tsk_table_collection_subset(&tables, NULL, 0);
@@ -3249,7 +3251,7 @@ test_subset(void)
     CU_ASSERT_FATAL(ret >= 0);
 
     // empty nodes should get empty tables
-    ret = tsk_table_collection_copy(&tables, &tables_copy, 0);
+    ret = tsk_table_collection_copy(&tables, &tables_copy, TSK_NO_INIT);
     CU_ASSERT_EQUAL_FATAL(ret, 0);
     ret = tsk_table_collection_subset(&tables_copy, NULL, 0);
     CU_ASSERT_EQUAL_FATAL(ret, 0);
@@ -3261,7 +3263,7 @@ test_subset(void)
     for (k = 0; k < 4; k++) {
         nodes[k] = k;
     }
-    ret = tsk_table_collection_copy(&tables, &tables_copy, 0);
+    ret = tsk_table_collection_copy(&tables, &tables_copy, TSK_NO_INIT);
     CU_ASSERT_EQUAL_FATAL(ret, 0);
     ret = tsk_table_collection_subset(&tables_copy, nodes, 4);
     CU_ASSERT_EQUAL_FATAL(ret, 0);
@@ -3271,7 +3273,7 @@ test_subset(void)
     for (k = 0; k < 4; k++) {
         nodes[k] = 3 - k;
     }
-    ret = tsk_table_collection_copy(&tables, &tables_copy, 0);
+    ret = tsk_table_collection_copy(&tables, &tables_copy, TSK_NO_INIT);
     CU_ASSERT_EQUAL_FATAL(ret, 0);
     ret = tsk_table_collection_subset(&tables_copy, nodes, 4);
     CU_ASSERT_EQUAL_FATAL(ret, 0);
@@ -3279,8 +3281,8 @@ test_subset(void)
     CU_ASSERT_EQUAL_FATAL(ret, 0);
     CU_ASSERT_FATAL(tsk_table_collection_equals(&tables, &tables_copy));
 
-    tsk_table_collection_free(&tables);
     tsk_table_collection_free(&tables_copy);
+    tsk_table_collection_free(&tables);
 }
 
 int

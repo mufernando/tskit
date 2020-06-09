@@ -2499,8 +2499,8 @@ class TableCollection:
         """
         nodes = util.safe_np_int_cast(nodes, np.int32)
         self.ll_tables.subset(nodes)
-        parameters = {"command": "subset", "nodes": nodes.tolist()}
         if record_provenance:
+            parameters = {"command": "subset", "nodes": nodes.tolist()}
             self.provenances.add_row(
                 record=json.dumps(provenance.get_provenance_dict(parameters))
             )
