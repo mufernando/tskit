@@ -2421,7 +2421,7 @@ and the sites that have remaining mutations.
 
 @param self A pointer to a tsk_table_collection_t object.
 @param nodes An array of num_nodes valid node IDs.
-@param node_nodes The number of node IDs in the input nodes array.
+@param num_nodes The number of node IDs in the input nodes array.
 @return Return 0 on success or a negative value on failure.
 */
 int tsk_table_collection_subset(
