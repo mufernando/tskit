@@ -4410,7 +4410,7 @@ class TreeSequence:
 
         1. Nodes: if in the list of nodes, and in the order provided.
         2. Individuals and Populations: if referred to by a retained node,
-        and in the order first seen when traversing the list of retained nodes.
+           and in the order first seen when traversing the list of retained nodes.
         3. Edges: if both parent and child are retained nodes.
         4. Mutations: if the mutation's node is a retained node.
         5. Sites: if any mutations remain at the site after removing mutations.
