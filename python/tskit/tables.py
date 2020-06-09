@@ -2475,27 +2475,13 @@ class TableCollection:
         """
         Modifies the tables in place to contain only the entries referring to
         the provided list of nodes, with nodes reordered according to the order
-        they appear in the list.  Specifically, this subsets each of the tables
-        as follows:
+        they appear in the list. See :meth:`TreeSequence.subset` for a more
+        detailed description.
 
-        1. Nodes: if in the list of nodes, and in the order provided.
-        2. Individuals and Populations: if referred to by a retained node,
-        and in the order first seen when traversing the list of retained nodes.
-        3. Edges: if both parent and child are retained nodes.
-        4. Mutations: if the mutations' node is a retained node.
-        5. Sites: if any mutations remain at the site after removing mutations.
-        6. Migrations: if the migration's node is a retained node.
-
-        If ``nodes`` is the entire list of nodes in the tables, then the
-        resulting tables will be identical to the original tables, but with
-        nodes (and individuals and populations) reordered.
-
-        To subset the tables to a portion of the genome, see
-        :meth:`.keep_intervals`.
-
-        **Note:** This is quite different from :meth:`.simplify`: the resulting
-        tables contain only the nodes given, not ancestral ones as well, and
-        does not simplify the relationships in any way.
+        :param list nodes: The list of nodes for which to retain information. This
+            may be a numpy array (or array-like) object (dtype=np.int32).
+        :param bool record_provenance: Whether to record a provenance entry
+            in the provenance table for this operation.
         """
         nodes = util.safe_np_int_cast(nodes, np.int32)
         self.ll_tables.subset(nodes)
