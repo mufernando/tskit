@@ -8111,15 +8111,14 @@ out:
 }
 
 int TSK_WARN_UNUSED
-tsk_table_collection_graft(
+tsk_table_collection_union(
     tsk_table_collection_t *self, tsk_table_collection_t *other, 
-    tsk_id_t *nodes, size_t num_nodes)
+    tsk_id_t *nodes)
 {
     int ret = 0;
     tsk_id_t k, n, m, ind, pop, mut, site;
     tsk_id_t *node_map, *individual_map, *population_map, *site_map, *mutation_map;
     
-    // num_nodes = number of nodes in other
     // nodes relates id in other (index) to equivalent node in self or -1 if not present
     // maps relates id in other (index) to equivalent id in self
     node_map = calloc(other->nodes.num_rows, sizeof(tsk_id_t));
@@ -8138,27 +8137,25 @@ tsk_table_collection_graft(
     memset(site_map, 0xff, other->sites.num_rows * sizeof(tsk_id_t));
     memset(mutation_map, 0xff, other->mutations.num_rows * sizeof(tsk_id_t));
 
-    // TODO: not sure what the right way is to access members of struct from poiter other
-    
     // nodes, individuals, populations
-    for (k = 0; k < (tsk_id_t) num_nodes; k++) {
+    for (k = 0; k < other->nodes.num_rows; k++) {
         if (nodes[k] < 0) {
-            ind = other.nodes.individual[k];
+            ind = other->nodes.individual[k];
             if (ind >= 0) {
                 if (individual_map[ind] < 0) {
                     ret = individual_table_copy_row(
-                        &other.individuals, &self->individuals, ind);
+                        &other->individuals, &self->individuals, ind);
                     if (ret < 0) {
                         goto out;
                     }
                     individual_map[ind] = ret;
                 }
             }
-            pop = other.nodes.population[k];
+            pop = other->nodes.population[k];
             if (pop >= 0) {
                 if (population_map[pop] < 0) {
                     ret = population_table_copy_row(
-                        &other.populations, &self->populations, pop);
+                        &other->populations, &self->populations, pop);
                     if (ret < 0) {
                         goto out;
                     }
@@ -8166,7 +8163,7 @@ tsk_table_collection_graft(
                 }
             }
             ret = node_table_copy_row(
-                &other.nodes, &self->nodes, k, population_map, individual_map);
+                &other->nodes, &self->nodes, k, population_map, individual_map);
             if (ret < 0) {
                 goto out;
             }
@@ -8177,33 +8174,34 @@ tsk_table_collection_graft(
     }
 
     // edges
-    for (k = 0; k < (tsk_id_t) other.edges.num_rows; k++) {
-        m = nodes[other.edges.parent[k]];
-        n = nodes[other.edges.child[k]];
+    for (k = 0; k < (tsk_id_t) other->edges.num_rows; k++) {
+        m = nodes[other->edges.parent[k]];
+        n = nodes[other->edges.child[k]];
         // either parent or child are new
         if ((n < 0) || (m < 0)) {
-            ret = edge_table_copy_row(&other.edges, &self->edges, k, node_map);
+            ret = edge_table_copy_row(&other->edges, &self->edges, k, node_map);
             if (ret < 0) {
                 goto out;
             }
         }
     }
 
-    // mutations and sites
+    // sites
     mut = 0;
-    for (site = 0; site < (tsk_id_t) other.sites.num_rows; site++) {
-        while ((mut < (tsk_id_t) other.mutations.num_rows)
-               && (other.mutations.site[mut] == site)) {
-            n = nodes[other.mutations.node[mut]];
+    for (site = 0; site < (tsk_id_t) other->sites.num_rows; site++) {
+        while ((mut < (tsk_id_t) other->mutations.num_rows)
+               && (other->mutations.site[mut] == site)) {
+            n = nodes[other->mutations.node[mut]];
             if (n < 0) {
                 if (site_map[site] < 0) {
-                    ret = site_table_copy_row(&other.sites, &self->sites, site);
+                    ret = site_table_copy_row(&other->sites, &self->sites, site);
                     if (ret < 0) {
                         goto out;
                     }
                     site_map[site] = ret;
                 }
-                ret = mutation_table_copy_row(&tables.mutations, &self->mutations, mut,
+                // TODO: set mutation parent to NULL
+                ret = mutation_table_copy_row(&other->mutations, &self->mutations, mut,
                     site_map, node_map, mutation_map);
                 if (ret < 0) {
                     goto out;
@@ -8215,11 +8213,11 @@ tsk_table_collection_graft(
     }
 
     // migrations
-    for (k = 0; k < (tsk_id_t) other.migrations.num_rows; k++) {
-        n = other.migrations.node[k];
+    for (k = 0; k < (tsk_id_t) other->migrations.num_rows; k++) {
+        n = other->migrations.node[k];
         if (nodes[n] < 0) {
             ret = migration_table_copy_row(
-                &other.migrations, &self->migrations, k, node_map, population_map);
+                &other->migrations, &self->migrations, k, node_map, population_map);
             if (ret < 0) {
                 goto out;
             }
@@ -8227,6 +8225,24 @@ tsk_table_collection_graft(
     }
 
     // TODO: provenance (new record is added in python)
+    if (ret < 0) {
+        goto out;
+    }
+    
+    // deduplicating, sorting, and computing parents
+    ret = tsk_table_collection_sort(&self, 0, 0);
+    if (ret < 0) {
+        goto out;
+    }
+    ret = tsk_table_collection_deduplicate_sites(&self, 0);
+    if (ret < 0) {
+        goto out;
+    }
+    ret = tsk_table_collection_build_index(&self, 0);
+    if (ret < 0) {
+        goto out;
+    }
+    ret = tsk_table_collection_compute_mutation_parents(&self, 0);
     if (ret < 0) {
         goto out;
     }
