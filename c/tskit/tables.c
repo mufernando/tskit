@@ -8211,6 +8211,9 @@ tsk_table_collection_union(
             mut++;
         }
     }
+    // setting all parents to NULL, so we can compute them later
+    // TODO: check this is the right way of deferencing
+    memset(self->mutations->parent, 0xff, self->mutations.num_rows * sizeof(tsk_id_t));
 
     // migrations
     for (k = 0; k < (tsk_id_t) other->migrations.num_rows; k++) {
